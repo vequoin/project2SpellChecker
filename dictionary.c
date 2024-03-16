@@ -88,8 +88,8 @@ int loadDictionary(const char *path) {
     return 1;
 }
 
-int isWordInDictionary(const char *word){
-
+int isWordInDictionary(const char *word) {
+    return binarySearchForWord(dictionary, DICT_SIZE, word) != -1;
 }
 
 int customCompare(const char* dictWord, const char* textWord) {
