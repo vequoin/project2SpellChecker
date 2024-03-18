@@ -30,23 +30,23 @@ void checkSpelling(const char *path) {
         while (i < bytesRead) {
             if (isPartOfWord(buffer[i], prevChar)) {
                 char word[MAX_WORD_LEN] = {0};
-                int wordLen = 0, wordStartCol = colNum; // Track start column of the word
+                int wordLen = 0, wordStartCol = colNum; 
 
                 while (i < bytesRead && isPartOfWord(buffer[i], prevChar)) {
                     if (wordLen < MAX_WORD_LEN - 1) {
                         word[wordLen++] = buffer[i];
                     }
-                    prevChar = buffer[i]; // Update prevChar here
+                    prevChar = buffer[i]; 
                     colNum++;
                     i++;
                 }
                 word[wordLen] = '\0'; // Null-terminate the word
+                trimTrailingPunctuation(word);
                 
                 if (!isWordInDictionary(word)) {
                     printf("Misspelled word \"%s\" at line %d, column %d\n", word, lineNum, wordStartCol);
                 }
                 
-                // No need to increment `i` here as it's already at the next position
             }
             
             // Check for non-word characters and handle newlines
@@ -113,5 +113,22 @@ int isPartOfWord(char c, char prevChar) {
         return isalpha(prevChar);
     }
     return 0;
+}
+
+void trimTrailingPunctuation(char* word) {
+    int length = strlen(word);
+
+    while (length > 0) {
+        char lastChar = word[length - 1];
+        if (lastChar == '.' || lastChar == ',' || lastChar == '?' || lastChar == '!' ||
+            lastChar == ':' || lastChar == ';' || lastChar == '"' || lastChar == '\'' ||
+            lastChar == ')' || lastChar == ']' || lastChar == '}') {
+            word[length - 1] = '\0'; 
+            length--; 
+        } else {
+           
+            break;
+        }
+    }
 }
 
