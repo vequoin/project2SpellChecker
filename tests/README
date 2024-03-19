@@ -1,3 +1,42 @@
 Group Names:
 Daksh Pandya - dpp122
 Digvijay Singh - ds1982
+
+This README provides an overview of the Spell Checker program. This tool checks text files for spelling errors against a provided dictionary. The program is designed to handle basic words, capitalization, punctuation, hyphenated words, and proper names.
+
+Compilation and Run:
+We compile the program using the command: gcc -o spchk mainfile.c dictionary.c file-processing.c -I.
+We run the spell checker program using the command: ./spchk dictionary/dict tests/
+
+Test Cases:
+  test01Basic Words and Capitalization.txt
+  Purpose: Checks the program's ability to recognize basic words and handle different capitalizations.
+  Expected Output: All variations of "hello" (e.g., "hello", "Hello", "HELLO") should be recognized as correct if "hello" is in the dictionary.
+
+  test02Trailing Punctuation.txt
+  Purpose: Tests the program's ability to ignore punctuation following words.
+  Expected Output: Words like "hello," and "world!" should be marked correct if "hello" and "world" are in the dictionary.
+
+  test03Hyphenated Words.txt
+  Purpose: Evaluates handling of hyphenated words.
+  Expected Output: Words such as "well-being" and "mother-in-law" should be recognized if they are in the dictionary.
+
+  test04Quotation Marks and Brackets.txt
+  Purpose: Checks the program's performance with words enclosed in quotation marks and brackets.
+  Expected Output: Words like "(world)" and "[test]" should be marked correct based on their root words being in the dictionary.
+
+  test05Line and Column Tracking.txt  
+  Purpose: Tests the program's ability to track line and column numbers of identified misspelled words.
+  Expected Output: Incorrect words should be reported along with their correct line and column position.
+
+  test06Long Testing for Each.txt
+  Purpose: Comprehensive test covering multiple cases in a longer text.
+  Expected Output: Various errors should be detected based on the dictionary, including handling of capitalization, punctuation, and hyphenated words.
+
+  testnovelA long Novel.txt and testnovel02A long Novel Two.txt
+  Purpose: Tests the program's performance and efficiency with large text files.
+  Expected Output: Should correctly identify any misspelled words without excessive processing time.
+
+  tests07Capitalization Sensitivity.txt
+  Purpose: Assesses the program's sensitivity to proper nouns and their capitalization.
+  Expected Output: Differentiates between proper nouns and common nouns (e.g., "MacDonald" vs. "macdonald") based on the dictionary entries.
