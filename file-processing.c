@@ -6,12 +6,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h> 
+#include <sys/types.h>
 
 #define BUFFER_SIZE 4096
 #define MAX_WORD_LEN 100
 
 
 void checkSpelling(const char *path) {
+    //printf("Starting to check spelling in file: %s\n", path);
     int fo = open(path, O_RDONLY);
     if (fo == -1) {
         perror("File cannot be opened");
@@ -24,40 +26,45 @@ void checkSpelling(const char *path) {
     char prevChar = '\0'; // Correct variable naming to match convention
 
     while ((bytesRead = read(fo, buffer, BUFFER_SIZE - 1)) > 0) {
-        buffer[bytesRead] = '\0';
+        //printf("Processing %zd bytes from file.\n", bytesRead);
+        buffer[bytesRead] = '\0'; // Ensuring the buffer is null-terminated
         ssize_t i = 0;
 
         while (i < bytesRead) {
             if (isPartOfWord(buffer[i], prevChar)) {
                 char word[MAX_WORD_LEN] = {0};
-                int wordLen = 0, wordStartCol = colNum; 
+                int wordLen = 0, wordStartCol = colNum;
 
                 while (i < bytesRead && isPartOfWord(buffer[i], prevChar)) {
                     if (wordLen < MAX_WORD_LEN - 1) {
                         word[wordLen++] = buffer[i];
                     }
-                    prevChar = buffer[i]; 
+                    prevChar = buffer[i];
                     colNum++;
                     i++;
                 }
+
                 word[wordLen] = '\0'; // Null-terminate the word
-                trimTrailingPunctuation(word);
-                
-                if (!isWordInDictionary(word)) {
-                    printf("Misspelled word \"%s\" at line %d, column %d\n", word, lineNum, wordStartCol);
+                //printf("Extracted word: '%s' at line %d, column %d\n", word, lineNum, wordStartCol);
+
+                //trimTrailingPunctuation(word);
+                //printf("After trimming, word: '%s'\n", word);
+
+                if(isWordInDictionary(word)) {
+                    //printf("'%s' is in the dictionary.\n", word);
+                } else {
+                    printf("Misspelled word '%s' at line %d, column %d\n", word, lineNum, wordStartCol);
                 }
-                
-            }
-            
-            // Check for non-word characters and handle newlines
-            if (i < bytesRead && buffer[i] == '\n') {
-                lineNum++;
-                colNum = 1; // Reset column number for new line
-                prevChar = '\n'; // Update prevChar for newline handling
-                i++; // Make sure to increment `i` to move past the newline character
-            } else if (i < bytesRead) {
-                colNum++;
-                prevChar = buffer[i]; // Update prevChar for any other character
+
+            } else {
+                if (buffer[i] == '\n') {
+                    lineNum++;
+                    colNum = 1; // Reset column number for new line
+                    //printf("Newline encountered. Moving to line %d.\n", lineNum);
+                } else {
+                    colNum++;
+                }
+                prevChar = buffer[i];
                 i++; // Increment `i` here for non-word characters
             }
         }
@@ -67,6 +74,7 @@ void checkSpelling(const char *path) {
         perror("Error reading file");
     }
 
+    printf("Finished checking file: %s\n", path);
     close(fo);
 }
 
