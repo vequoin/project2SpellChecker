@@ -2,7 +2,32 @@ Group Names:
 Daksh Pandya - dpp122
 Digvijay Singh - ds1982
 
-This README provides an overview of the Spell Checker program. This tool checks text files for spelling errors against a provided dictionary. The program is designed to handle basic words, capitalization, punctuation, hyphenated words, and proper names.
+This README provides an overview of the Spell Checker program. This tool checks text files for spelling errors against a provided dictionary. 
+The spell checker is designed to efficiently identify and report misspelled words in text files, leveraging a dictionary for validation. The design focuses on modularity, ease of extension, and efficient handling of different input scenarios. The implementation is split into two main components: dictionary management (dictionary.c) and file processing (file-processing.c).
+
+Dictionary Management (dictionary.c):
+- The dictionary component is responsible for loading, searching, and managing a list of correctly spelled words.
+
+- Loading: The dictionary is loaded from a file specified by the user. Each word is read and stored in a dynamically allocated array. This process involves parsing each line of the file and storing each word into an array, ensuring that memory allocation is sufficient and efficient.
+
+- Searching: To determine if a word is correctly spelled, the program searches for it within the loaded dictionary. The search can be performed using either a sequential search or a binary search strategy, depending on the implementation. In the provided code, a sequential search is used, which iterates through the dictionary to find a match. For optimization, a binary search method is also implemented, suitable for large dictionaries, reducing the average search time.
+
+- Case Sensitivity and Variations: The program accommodates different word variations, such as capitalization and possessive forms, through a custom comparison function. This ensures that words like "Apple" and "apple" or "John's" and "johns" are treated appropriately based on dictionary entries.
+
+- Memory Management: Dynamic memory allocation is used for the dictionary to allow flexibility in dictionary size. The program ensures proper memory release after execution to prevent memory leaks.
+
+File Processing (file-processing.c):
+- This component handles reading and analyzing text files, identifying potential spelling errors.
+
+- Reading Text: The program reads text from files using buffered I/O for efficiency, handling both small and large files effectively. It parses text into words based on delimiters like spaces and punctuation marks.
+
+- Word Identification: The algorithm identifies words by considering letters, hyphens, and apostrophes as part of words, allowing it to handle a wide range of word formats, including hyphenated words and contractions.
+
+- Error Reporting: For each identified word, the program checks against the dictionary. If a word is not found, it's reported as misspelled, alongside its line and column numbers for easy location.
+
+- Handling Special Cases: The program also deals with special text cases such as trailing punctuation, hyphenated words, and words surrounded by quotation marks or brackets, ensuring accurate word extraction and checking.
+
+- Directory Support: Besides individual files, the program can recursively process directories, checking all text files contained within. This feature allows batch processing of multiple documents for spell checking.
 
 Compilation and Run:
 We compile the program using the command: gcc -o spchk mainfile.c dictionary.c file-processing.c -I.
