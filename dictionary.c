@@ -4,14 +4,17 @@
 #include <unistd.h> // For read, close
 #include <fcntl.h> // For open
 #include <ctype.h>
+#include "dictionary.h"
+#include <sys/types.h>
+#include <strings.h>
 
 #define MAX_WORD_LEN 100
-#define INITIAL_DICT_SIZE 1000 // Initial size, will grow as needed
+//#define INITIAL_DICT_SIZE 10000 // Initial size, will grow as needed
 #define BUFFER_SIZE 4096 // Buffer for reading from the file
 
 char **dictionary = NULL;
-size_t dictSize = INITIAL_DICT_SIZE;
-size_t dictIndex = 0; // Tracks the next free slot in the dictionary
+size_t dictSize = 0;
+size_t dictIndex = 0; 
 
 // Helper function to parse words from buffer and add them to the dictionary
 int parseWordsAndAddToDictionary(const char *buffer, ssize_t bufLen) {
@@ -28,7 +31,7 @@ int parseWordsAndAddToDictionary(const char *buffer, ssize_t bufLen) {
         } else if (wordLen > 0) { // End of word detected
             word[wordLen] = '\0'; // Null-terminate the current word
             
-            resizeDictionaryIfNeeded(); // Ensure there's room for the new word
+            //resizeDictionaryIfNeeded(); // Ensure there's room for the new word
             dictionary[dictIndex] = strdup(word); // Allocate memory and copy the word
             dictIndex++;
             
@@ -39,92 +42,96 @@ int parseWordsAndAddToDictionary(const char *buffer, ssize_t bufLen) {
     // Handle any partial word left at the end of the buffer
     if (wordLen > 0) {
         word[wordLen] = '\0';
-        resizeDictionaryIfNeeded();
+        //resizeDictionaryIfNeeded();
         dictionary[dictIndex] = strdup(word);
         dictIndex++;
     }
 
-    return wordLen; // Note: This return value may not be used; consider void return type
+    return wordLen; 
 }
 
-int loadDictionary(const char *path) {
+size_t countWordsInDictionary(const char *path) {
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
-        perror("Error opening dictionary file");
+        perror("Error opening dictionary file for counting");
         return 0;
     }
-    dictionary = malloc(dictSize * sizeof(char*));
-    if (!dictionary) {
-        perror("Memory allocation failed");
-        close(fd);
-        exit(EXIT_FAILURE); // Or handle more gracefully
-    }
-
-    size_t dictSize = INITIAL_DICT_SIZE; // Current size of the dictionary
-    size_t dictIndex = 0; // Index for the next word to add
 
     char buffer[BUFFER_SIZE];
     ssize_t bytesRead;
-    char partialWord[MAX_WORD_LEN] = {0}; // For words split across buffer reads
-    int partialWordLen = 0;
-    char word[MAX_WORD_LEN] = {0};
+    size_t wordCount = 0;
 
     while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0) {
-        ssize_t currentPos = 0; // Track current position within the buffer
-
-        // If there's a partial word from the previous read, handle it first
-        if (partialWordLen > 0) {
-            while (currentPos < bytesRead && buffer[currentPos] != '\n' && buffer[currentPos] != ' ' && partialWordLen < MAX_WORD_LEN - 1) {
-                partialWord[partialWordLen++] = buffer[currentPos++];
-            }
-            partialWord[partialWordLen] = '\0'; // Null-terminate the partial word
-            
-            // If we completed the partial word (by reaching a space, newline, or end of buffer)
-            if (currentPos < bytesRead && (buffer[currentPos] == ' ' || buffer[currentPos] == '\n')) {
-                if (dictIndex < INITIAL_DICT_SIZE) {
-                    strcpy(dictionary[dictIndex++], partialWord); // Add the completed partial word to the dictionary
-                }
-                partialWordLen = 0; // Reset for the next word
-                currentPos++; // Move past the space/newline that ended the partial word
+        for (ssize_t i = 0; i < bytesRead; i++) {
+            // Assuming words are separated by newlines or spaces
+            if (buffer[i] == '\n' || buffer[i] == ' ') {
+                wordCount++;
             }
         }
-
-        // Now process the rest of the buffer starting from currentPos
-        ssize_t start = currentPos; // Remember the start of the next word to process
-        for (; currentPos < bytesRead; currentPos++) {
-            if (buffer[currentPos] == ' ' || buffer[currentPos] == '\n' || currentPos == bytesRead - 1) {
-                // Extract the word from start to currentPos
-                int len = currentPos - start + (currentPos == bytesRead - 1 && buffer[currentPos] != ' ' && buffer[currentPos] != '\n'); // Include the last character if it's not whitespace
-                if (len > 0 && len < MAX_WORD_LEN) {
-                    strncpy(word, buffer + start, len);
-                    word[len] = '\0'; // Null-terminate the word
-                    if (dictIndex < INITIAL_DICT_SIZE) {
-                        strcpy(dictionary[dictIndex++], word); // Add the word to the dictionary
-                    }
-                }
-                start = currentPos + 1; // Set start to the beginning of the next word
-            }
-        }
-
-        // Handle case where the word at the end of the buffer is incomplete (a new partial word)
-        if (start < bytesRead) {
-            partialWordLen = bytesRead - start;
-            strncpy(partialWord, buffer + start, partialWordLen);
-            partialWord[partialWordLen] = '\0'; // Prepare the partial word for the next read
-        }
-    }
-
-    if (bytesRead == -1) {
-        perror("Error reading dictionary file");
-        close(fd);
-        return 0;
     }
 
     close(fd);
+
+    // Account for the last word if file doesn't end with a newline or space
+    wordCount++;
+
+    return wordCount;
+}
+int loadDictionary(const char *path) {
+    // First, count the number of words to allocate memory accordingly
+    dictSize = countWordsInDictionary(path);
+    printf("Number of words in dictionary: %zu\n", dictSize);
+
+    dictionary = malloc(dictSize * sizeof(char*)); // Allocation based on word count
+    if (!dictionary) {
+        perror("Failed to allocate memory for dictionary");
+        return 0;
+    }
+
+    // Open the file again to actually load the words
+    int fd = open(path, O_RDONLY);
+    if (fd == -1) {
+        perror("Error opening dictionary file for loading");
+        free(dictionary); // Clean up allocated memory
+        return 0;
+    }
+
+    char buffer[BUFFER_SIZE];
+    ssize_t bytesRead;
+    size_t currentWordIndex = 0;
+    char word[MAX_WORD_LEN] = {0};
+    int wordLen = 0;
+
+    while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0) {
+        for (ssize_t i = 0; i < bytesRead; i++) {
+            if (buffer[i] == '\n' || buffer[i] == ' ') {
+                if (wordLen > 0) {
+                    word[wordLen] = '\0'; // Null-terminate the current word
+                    dictionary[currentWordIndex++] = strdup(word);
+                    wordLen = 0; // Reset for the next word
+                }
+            } else {
+                if (wordLen < MAX_WORD_LEN - 1) {
+                    word[wordLen++] = buffer[i];
+                }
+            }
+        }
+    }
+
+    // Handle the last word if file doesn't end with a newline or space
+    if (wordLen > 0) {
+        word[wordLen] = '\0';
+        dictionary[currentWordIndex++] = strdup(word);
+    }
+
+    close(fd);
+    printf("Loaded %zu words into the dictionary.\n", currentWordIndex);
     return 1;
 }
 
-void resizeDictionaryIfNeeded() {
+
+
+/*void resizeDictionaryIfNeeded() {
     if (dictIndex >= dictSize) {
         size_t newSize = dictSize * 2;
         char **newDict = realloc(dictionary, newSize * sizeof(char*));
@@ -135,69 +142,96 @@ void resizeDictionaryIfNeeded() {
         dictionary = newDict;
         dictSize = newSize;
     }
+}*/
+
+
+/*int isWordInDictionary(const char *word) {
+    return binarySearchForWord((const char* const*)dictionary, INITIAL_DICT_SIZE, word) != -1;
+}*/
+
+// Helper function to check if a word is all uppercase
+int isAllUpperCase(const char* word) {
+    for (; *word; ++word) {
+        if (islower((unsigned char)*word)) return 0;
+    }
+    return 1;
 }
 
-
-int isWordInDictionary(const char *word) {
-    return binarySearchForWord(dictionary, INITIAL_DICT_SIZE, word) != -1;
-}
-
+// Custom comparison function
 int customCompare(const char* dictWord, const char* textWord) {
+    // Perform a case-insensitive comparison first.
+    //printf("Comparing dictionary word '%s' with text word '%s'\n", dictWord, textWord);
+    const char* pDict = dictWord;
+    const char* pText = textWord;
+    while (*pDict && *pText && tolower((unsigned char)*pDict) == tolower((unsigned char)*pText)) {
+        ++pDict;
+        ++pText;
+    }
+    // If not at the end of both strings, they're not a match.
+    if (*pDict != '\0' || *pText != '\0') return 0;
+
+    // If the text word is all uppercase, it's considered a correct match.
+    if (isAllUpperCase(textWord)) return 1;
+
+    // Re-check ensuring uppercase in dictWord matches exactly in textWord.
     while (*dictWord && *textWord) {
-        // Convert both characters to lowercase for comparison.
-        char lowerDictChar = tolower((unsigned char)*dictWord);
-        char lowerTextChar = tolower((unsigned char)*textWord);
-
-        if (lowerDictChar != lowerTextChar) {
-            return 0; // Characters don't match, not the same word.
-        }
-
-        // Additional rule: if dictWord character is uppercase and textWord character doesn't match exactly.
         if (isupper((unsigned char)*dictWord) && *dictWord != *textWord) {
-            return 0; // Uppercase character in dictWord doesn't match textWord character exactly.
+            // Uppercase letter doesn't match exactly, not a match.
+            return 0;
         }
-
-        dictWord++;
-        textWord++;
+        ++dictWord;
+        ++textWord;
     }
 
-    // Both strings should end at the same time for a complete match.
-    return *dictWord == '\0' && *textWord == '\0';
+    // Passed all checks, it's a match.
+    return 1;
 }
 
-int binarySearchForWord(const char* dictionary[], int size, const char* word) {
+int isWordInDictionary(const char *word) {
+    return sequentialSearchForWord((const char* const*)dictionary, dictSize, word) != -1;
+}
+
+int sequentialSearchForWord(const char* const dictionary[], int size, const char* word) {
+    for (int i = 0; i < size; ++i) {
+        //printf("Checking word: '%s'\n", word);
+        if (customCompare(dictionary[i], word)) {
+            return i; // Found a match
+        }
+    }
+    return -1; // No match found
+}
+
+
+int binarySearchForWord(const char* const dictionary[], int size, const char* word) {
     int low = 0, high = size - 1;
     
     while (low <= high) {
         int mid = low + (high - low) / 2;
-        int res = customCompare(word, dictionary[mid]);
+        int compareResult = strcasecmp(word, dictionary[mid]);
 
-        // If words match case-insensitively, check for case-sensitive match if needed.
-        if (res == 0) {
-            // For words that must retain exact capitalization (e.g., "McDonalds"),
-            // perform an additional exact match check here if the dictionary word
-            // has capital letters beyond the initial character.
-            if (strcmp(word, dictionary[mid]) == 0 || isAllUpperCase(word)) {
-                return mid; // Exact match found
+        if (compareResult == 0) { // Case-insensitive match found
+            if (customCompare(dictionary[mid], word)) {
+                // Match confirmed with custom rules
+                return mid;
+            } else {
+                // Continue searching even after a fundamental match because 
+                // customCompare might fail due to specific rules.
+                // This is where you might adjust logic based on the specifics of your dictionary and rules.
+                int leftMatch = (mid > low) ? binarySearchForWord(dictionary, mid, word) : -1;
+                if (leftMatch != -1) return leftMatch;
+
+                int rightMatch = (mid < high) ? binarySearchForWord(dictionary + mid + 1, high - mid, word) : -1;
+                if (rightMatch != -1) return mid + 1 + rightMatch;
+
+                return -1; // No match found according to rules.
             }
-            // If not an exact match and not all uppercase, adjust search range.
-            // This part may need refinement based on how you define "exact capitalization rules".
         }
 
-        if (res < 0) high = mid - 1; // Search left half
+        if (compareResult < 0) high = mid - 1; // Search left half
         else low = mid + 1; // Search right half
     }
 
     return -1; // Word not found
-}
-
-int isAllUpperCase(const char* word) {
-    // Returns 1 (true) if all characters in 'word' are uppercase, 0 (false) otherwise.
-    while (*word) {
-        if (islower(*word)) return 0;
-        word++;
-    }
-    return 1;
 }
 
 void freeDictionary(){
